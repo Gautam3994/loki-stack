@@ -1,0 +1,76 @@
+auth_enabled: false
+
+analytics:
+  reporting_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+  # Raise gRPC limits to handle larger Fluent Bit push batches.
+  grpc_server_max_recv_msg_size: 8388608   # 8 MB
+  grpc_server_max_send_msg_size: 8388608
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directoru: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  
+schema_config:
+  configs:
+    - from: 2025-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/index
+    cache_location:         /loki/index_cache
+  filesystem:
+    directory: /loki/chunks
+
+limits_config:
+  # Fluent Bit parallel processing can deliver entries slightly out of order.
+  reject_old_samples:         false
+  reject_old_samples_max_age: 168h   # 1 week
+
+  # Loki 3.x features — enable for richer querying.
+  allow_structured_metadata: true
+  volume_enabled:            true
+
+  # 30-day retention. Compactor enforces this; see compactor block.
+  retention_period: 720h
+
+  # Ingestion guard rails — sensible for a handful of homelab VMs.
+  ingestion_rate_mb:           16
+  ingestion_burst_size_mb:     32
+  max_global_streams_per_user: 10000
+  max_entries_limit_per_query: 10000
+
+compactor:
+  working_directory:          /loki/compactor
+  compaction_interval:        10m
+  retention_enabled:          true
+  retention_delete_delay:     2h
+  # Required in Loki 3.x for retention to actually delete data.
+  # Without this key retention is silently a no-op.
+  delete_request_store:       filesystem
+
+
+ingester:
+  chunk_idle_period: 30m
+  max_chunk_age:     2h
+  # chunk_retain_period removed — deprecated in 3.x, WAL covers this.
+  wal:
+    dir: /loki/wal
