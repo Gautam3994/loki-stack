@@ -2,18 +2,18 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
-	"fmt"
-	"io"
 )
 
 const (
-	exitOk = 0
+	exitOk      = 0
 	exitFailure = 1
-	exitError = 2
-	exitUsage = 3
+	exitError   = 2
+	exitUsage   = 3
 )
 
 func main() {
@@ -34,13 +34,14 @@ func main() {
 	client := &http.Client{
 		Timeout: time.Duration(*timeout) * time.Second,
 		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
+			return http.ErrUseLastResponse // Don't allow redirects
 		},
 	}
 
 	resp, err := client.Head(*url)
 	if err == nil && resp.StatusCode == http.StatusMethodNotAllowed {
-		io.Copy(io.Discard, resp.Body)
+		io.Copy(io.Discard, resp.Body) // reading or copying the response body to io.Discard like /dev/null
+		// so that tcp connection can be reused
 		resp.Body.Close()
 		resp, err = client.Get(*url)
 	}
@@ -50,6 +51,8 @@ func main() {
 		os.Exit(exitError)
 	}
 
+	// If this defer wasn't here, you would leak a socket every time this function ran if future refactoring
+	// allowed it - right now os.Exit makes defer func() never run
 	defer func() {
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
