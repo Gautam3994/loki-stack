@@ -13,8 +13,9 @@ RUN go test -v
 # Build the binary using BuildKit cache mounts and dynamic architecture.
 # $TARGETARCH ensures it cross-compiles correctly (e.g., arm64 for Mac, amd64 for EC2)
 ARG TARGETARCH
+ARG TARGETOS
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -ldflags="-s -w" -o healthcheck main.go
 
 # ---------------------------------------------------------
